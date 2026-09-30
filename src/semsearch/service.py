@@ -29,6 +29,19 @@ class SearchService:
         dense, sparse = await asyncio.to_thread(self.encoder.embed_documents, [c.text for c in chunks])
         return await self.store.replace_source(chunks, dense, sparse, doc_date or dt.date.today())
 
+    async def ingest_many(self, batch: list[tuple[list[Chunk], dt.date | None]]) -> int:
+        """Ingest several sources, embedding all their chunks in one model call (much faster). Returns chunks stored."""
+        texts = [c.text for chunks, _ in batch for c in chunks]
+        if not texts:
+            return 0
+        dense, sparse = await asyncio.to_thread(self.encoder.embed_documents, texts)
+        start = 0
+        for chunks, doc_date in batch:
+            end = start + len(chunks)
+            await self.store.replace_source(chunks, dense[start:end], sparse[start:end], doc_date or dt.date.today())
+            start = end
+        return len(texts)
+
     async def search(
         self,
         query: str,

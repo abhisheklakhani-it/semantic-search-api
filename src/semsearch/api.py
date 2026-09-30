@@ -1,16 +1,20 @@
 """FastAPI application: HTTP endpoints for ingesting documents and searching them."""
 
 import datetime as dt
+import logging
 import time
+import uuid
 from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
+from langchain_core.documents import Document
 from qdrant_client import AsyncQdrantClient
 
 from semsearch.config import Settings, get_settings
 from semsearch.encoders import Encoder, FastEmbedEncoder
-from semsearch.loaders import Chunk, UnsupportedFileType, load_bytes, split_documents
+from semsearch.loaders import UnsupportedFileType, load_bytes, split_documents
+from semsearch.logging_setup import setup_logging
 from semsearch.schemas import (
     DeleteResult,
     IngestResult,
@@ -21,6 +25,8 @@ from semsearch.schemas import (
 )
 from semsearch.service import SearchService
 from semsearch.store import VectorStore
+
+log = logging.getLogger("semsearch")
 
 
 def make_client(settings: Settings) -> AsyncQdrantClient:
@@ -36,6 +42,7 @@ def elapsed_ms(start: float) -> float:
 def create_app(settings: Settings | None = None, encoder: Encoder | None = None) -> FastAPI:
     """Build the app. Tests pass a fake encoder and ':memory:' Qdrant; production loads the real models."""
     settings = settings or get_settings()
+    setup_logging(settings.log_level)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -48,6 +55,7 @@ def create_app(settings: Settings | None = None, encoder: Encoder | None = None)
         app.state.client = client
         app.state.service = SearchService(enc, store, settings.rerank_candidates, settings.max_offset + settings.max_k)
         await app.state.service.start()
+        log.info("startup complete", extra={"qdrant": settings.qdrant_url, "collection": settings.collection})
         yield
         await client.close()
 
@@ -57,6 +65,30 @@ def create_app(settings: Settings | None = None, encoder: Encoder | None = None)
         description="Hybrid (dense + BM25) search over your documents with Qdrant and a cross-encoder reranker.",
         lifespan=lifespan,
     )
+
+    @app.middleware("http")
+    async def log_requests(request: Request, call_next):
+        """One JSON log line per request, tagged with a request ID that is also returned to the client."""
+        request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:16]
+        request.state.request_id = request_id
+        start = time.perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            log.exception("unhandled error", extra={"request_id": request_id, "path": request.url.path})
+            raise
+        response.headers["X-Request-ID"] = request_id
+        log.info(
+            "request",
+            extra={
+                "request_id": request_id,
+                "method": request.method,
+                "path": request.url.path,
+                "status": response.status_code,
+                "duration_ms": elapsed_ms(start),
+            },
+        )
+        return response
 
     def service(request: Request) -> SearchService:
         return request.app.state.service
@@ -85,7 +117,22 @@ def create_app(settings: Settings | None = None, encoder: Encoder | None = None)
         """Search the stored chunks: retrieve candidates (hybrid by default), then rerank them with a cross-encoder."""
         if date_from and date_to and date_from > date_to:
             raise HTTPException(422, "date_from must not be after date_to")
-        return await service(request).search(q, k, offset, mode, rerank, source, date_from, date_to)
+        result = await service(request).search(q, k, offset, mode, rerank, source, date_from, date_to)
+        log.info(
+            "search",
+            extra={
+                "request_id": request.state.request_id,
+                "query_chars": len(q),  # log the size, not the text: queries can contain personal data
+                "mode": mode,
+                "rerank": rerank,
+                "k": k,
+                "offset": offset,
+                "filtered": bool(source or date_from or date_to),
+                "hits": len(result.results),
+                **result.timings.model_dump(),
+            },
+        )
+        return result
 
     @app.post("/ingest", response_model=IngestResult, status_code=201, tags=["documents"])
     async def ingest_file(
@@ -112,31 +159,33 @@ def create_app(settings: Settings | None = None, encoder: Encoder | None = None)
             raise HTTPException(422, "No text found in the file (a scanned PDF without a text layer?)")
         removed = await service(request).ingest(chunks, date)
         is_pdf = chunks[0].page is not None
-        return IngestResult(
+        result = IngestResult(
             source=chunks[0].source,
             chunks=len(chunks),
             pages=len(docs) if is_pdf else None,
             removed_old_chunks=removed,
             took_ms=elapsed_ms(start),
         )
+        log.info("ingest", extra={"request_id": request.state.request_id, **result.model_dump()})
+        return result
 
     @app.post("/ingest/text", response_model=TextIngestResponse, status_code=201, tags=["documents"])
     async def ingest_text(request: Request, body: TextIngestRequest) -> TextIngestResponse:
         """Ingest raw text documents as JSON (up to 1,000 per request); each one replaces an earlier source with the same name."""
-        from langchain_core.documents import Document
-
         start = time.perf_counter()
-        total = 0
+        batch = []
         for doc in body.documents:
-            chunks: list[Chunk] = split_documents(
+            chunks = split_documents(
                 [Document(page_content=doc.text, metadata={"source": doc.source})],
                 settings.chunk_size,
                 settings.chunk_overlap,
             )
             if chunks:
-                await service(request).ingest(chunks, doc.date)
-                total += len(chunks)
-        return TextIngestResponse(documents=len(body.documents), chunks=total, took_ms=elapsed_ms(start))
+                batch.append((chunks, doc.date))
+        total = await service(request).ingest_many(batch)
+        result = TextIngestResponse(documents=len(body.documents), chunks=total, took_ms=elapsed_ms(start))
+        log.info("ingest_text", extra={"request_id": request.state.request_id, **result.model_dump()})
+        return result
 
     @app.get("/sources", response_model=list[SourceInfo], tags=["documents"])
     async def list_sources(request: Request) -> list[SourceInfo]:
