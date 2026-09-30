@@ -44,7 +44,7 @@ class FastEmbedEncoder:
         sparse_model: str,
         rerank_model: str,
         cache_dir: str | None = None,
-        batch_size: int = 16,
+        batch_size: int = 1,
         threads: int | None = None,
     ):
         self.batch_size = batch_size

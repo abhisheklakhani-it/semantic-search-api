@@ -18,11 +18,12 @@ class Settings(BaseSettings):
     sparse_model: str = "Qdrant/bm25"
     rerank_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
     model_cache_dir: str | None = None
-    # Texts embedded per model call. Memory grows with batch x length^2 (attention), so a large batch of long
-    # chunks can use gigabytes: fastembed's default of 256 ran a 4 GB container out of memory.
-    embed_batch_size: int = Field(16, gt=0)
-    # ONNX Runtime threads per model (None = all cores). Inside Docker Desktop on an 8-core Mac, 4 threads
-    # embedded ~2x faster than 8: too many threads fight over the VM's CPUs.
+    # Texts per model call. Every text in a batch is padded to the longest one, and attention memory grows with
+    # batch x length^2: fastembed's default of 256 ran a 4 GB container out of memory. Measured on an M2 CPU,
+    # batch 1 was also the fastest (38 vs 17 chunks/s at batch 16), because no time is spent on padding.
+    embed_batch_size: int = Field(1, gt=0)
+    # ONNX Runtime threads per model (None = all cores). On an M2 (4 performance + 4 efficiency cores),
+    # 4 threads embedded 2x faster than 8: with 8, the fast cores wait for the slow ones.
     model_threads: int | None = Field(None, gt=0)
 
     # Chunking
