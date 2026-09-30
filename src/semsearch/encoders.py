@@ -46,8 +46,10 @@ class FastEmbedEncoder:
         cache_dir: str | None = None,
         batch_size: int = 1,
         threads: int | None = None,
+        query_prefix: str = "",
     ):
         self.batch_size = batch_size
+        self.query_prefix = query_prefix
         # Imported here so that tests using the fake encoder never load ONNX Runtime.
         from fastembed import SparseTextEmbedding, TextEmbedding
         from fastembed.rerank.cross_encoder import TextCrossEncoder
@@ -72,7 +74,7 @@ class FastEmbedEncoder:
         return dense, sparse
 
     def embed_query(self, text: str) -> tuple[list[float], models.SparseVector]:
-        dense = next(iter(self._dense.query_embed(text))).tolist()
+        dense = next(iter(self._dense.query_embed(self.query_prefix + text))).tolist()
         s = next(iter(self._sparse.query_embed(text)))
         return dense, models.SparseVector(indices=s.indices.tolist(), values=s.values.tolist())
 

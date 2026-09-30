@@ -55,6 +55,7 @@ def create_app(settings: Settings | None = None, encoder: Encoder | None = None)
             settings.model_cache_dir,
             settings.embed_batch_size,
             settings.model_threads,
+            settings.query_prefix,
         )
         store = VectorStore(client, settings.collection, local=settings.qdrant_url == ":memory:")
         app.state.client = client

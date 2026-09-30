@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     dense_model: str = "BAAI/bge-small-en-v1.5"
     sparse_model: str = "Qdrant/bm25"
     rerank_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
+    # BGE was trained with this instruction in front of search queries (not documents); see its model card.
+    # fastembed does not add it, so we do. Set it to "" for a dense model that uses no instruction.
+    query_prefix: str = "Represent this sentence for searching relevant passages: "
     model_cache_dir: str | None = None
     # Texts per model call. Every text in a batch is padded to the longest one, and attention memory grows with
     # batch x length^2: fastembed's default of 256 ran a 4 GB container out of memory. Measured on an M2 CPU,

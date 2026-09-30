@@ -39,3 +39,7 @@ def test_settings_come_from_environment(monkeypatch):
     monkeypatch.setenv("SEMSEARCH_QDRANT_URL", "http://qdrant:6333")
     settings = Settings(_env_file=None)
     assert settings.chunk_size == 300 and settings.qdrant_url == "http://qdrant:6333"
+
+
+def test_bge_query_instruction_is_the_default():
+    assert Settings(_env_file=None).query_prefix.startswith("Represent this sentence")
