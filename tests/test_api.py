@@ -104,7 +104,7 @@ def test_every_mode_finds_the_matching_document(client):
 def test_without_rerank_scores_are_retrieval_scores(client, encoder):
     upload(client, "battery.txt", BATTERY)
     upload(client, "radar.txt", RADAR)
-    body = client.get("/search", params={"q": "radar", "rerank": False}).json()
+    body = client.get("/search", params={"q": "radar"}).json()  # reranking is off by default
     assert body["reranked"] is False and encoder.rerank_calls == 0
     for hit in body["results"]:
         assert hit["score"] == hit["retrieval_score"] and hit["rank"] == hit["retrieval_rank"]
@@ -116,7 +116,7 @@ def test_reranker_decides_the_final_order(client, encoder):
         upload(client, name, text)
     # A reranker that always prefers the lidar text, whatever retrieval said.
     encoder.rerank = lambda query, texts: [1.0 if "Lidar" in t else 0.0 for t in texts]
-    hits = client.get("/search", params={"q": "radar doppler"}).json()["results"]
+    hits = client.get("/search", params={"q": "radar doppler", "rerank": True}).json()["results"]
     assert hits[0]["source"] == "lidar.txt"
     assert hits[0]["retrieval_rank"] > 1  # it was not first before reranking
     assert hits[0]["score"] == 1.0
@@ -180,7 +180,7 @@ def test_page_past_the_reranker_pool_skips_the_reranker(make_client, encoder):
     client = make_client(rerank_candidates=2)
     for i in range(6):
         upload(client, f"doc{i}.txt", f"radar note {i}")
-    client.get("/search", params={"q": "radar", "k": 2, "offset": 4})
+    client.get("/search", params={"q": "radar", "k": 2, "offset": 4, "rerank": True})
     assert encoder.rerank_calls == 0
 
 
@@ -188,9 +188,16 @@ def test_candidates_parameter_sets_the_reranker_pool(make_client, encoder):
     client = make_client(rerank_candidates=5)
     for i in range(12):
         upload(client, f"doc{i:02d}.txt", f"radar note {i}")
-    body = client.get("/search", params={"q": "radar", "k": 3}).json()
+    body = client.get("/search", params={"q": "radar", "k": 3, "rerank": True}).json()
     assert body["candidates"] == 5 and encoder.reranked_texts == 5
-    body = client.get("/search", params={"q": "radar", "k": 3, "candidates": 10}).json()
+    body = client.get("/search", params={"q": "radar", "k": 3, "rerank": True, "candidates": 10}).json()
     assert body["candidates"] == 10 and encoder.reranked_texts == 15
-    assert client.get("/search", params={"q": "radar", "rerank": False}).json()["candidates"] == 0
+    assert client.get("/search", params={"q": "radar"}).json()["candidates"] == 0
     assert client.get("/search", params={"q": "radar", "candidates": 101}).status_code == 422
+
+
+def test_reranking_can_be_turned_on_by_default(make_client, encoder):
+    client = make_client(rerank_by_default=True)
+    upload(client, "radar.txt", RADAR)
+    assert client.get("/search", params={"q": "radar"}).json()["reranked"] is True
+    assert client.get("/search", params={"q": "radar", "rerank": False}).json()["reranked"] is False

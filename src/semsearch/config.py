@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     chunk_overlap: int = Field(100, ge=0)
 
     # Search
+    # Off by default: on the SciFact benchmark reranking lowered nDCG@10 and cost 25-90x the latency
+    # (see README). Clients can still ask for it per request (rerank=true); measure on your own data.
+    rerank_by_default: bool = False
     rerank_candidates: int = Field(20, gt=0, description="Default number of retrieved chunks the cross-encoder re-scores")
     max_rerank_candidates: int = Field(100, gt=0)
     max_k: int = Field(50, gt=0, description="Largest page size a client may ask for")

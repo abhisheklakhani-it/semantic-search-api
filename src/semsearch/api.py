@@ -117,7 +117,9 @@ def create_app(settings: Settings | None = None, encoder: Encoder | None = None)
         k: int = Query(10, ge=1, le=settings.max_k, description="Number of results"),
         offset: int = Query(0, ge=0, le=settings.max_offset, description="Skip this many results (pagination)"),
         mode: Literal["hybrid", "dense", "bm25"] = Query("hybrid", description="Retrieval method"),
-        rerank: bool = Query(True, description="Re-score the top candidates with the cross-encoder"),
+        rerank: bool = Query(
+            settings.rerank_by_default, description="Re-score the top candidates with the cross-encoder"
+        ),
         candidates: int | None = Query(
             None,
             ge=1,
