@@ -182,3 +182,15 @@ def test_page_past_the_reranker_pool_skips_the_reranker(make_client, encoder):
         upload(client, f"doc{i}.txt", f"radar note {i}")
     client.get("/search", params={"q": "radar", "k": 2, "offset": 4})
     assert encoder.rerank_calls == 0
+
+
+def test_candidates_parameter_sets_the_reranker_pool(make_client, encoder):
+    client = make_client(rerank_candidates=5)
+    for i in range(12):
+        upload(client, f"doc{i:02d}.txt", f"radar note {i}")
+    body = client.get("/search", params={"q": "radar", "k": 3}).json()
+    assert body["candidates"] == 5 and encoder.reranked_texts == 5
+    body = client.get("/search", params={"q": "radar", "k": 3, "candidates": 10}).json()
+    assert body["candidates"] == 10 and encoder.reranked_texts == 15
+    assert client.get("/search", params={"q": "radar", "rerank": False}).json()["candidates"] == 0
+    assert client.get("/search", params={"q": "radar", "candidates": 101}).status_code == 422

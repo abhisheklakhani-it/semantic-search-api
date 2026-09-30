@@ -62,6 +62,7 @@ class SearchResponse(BaseModel):
     query: str
     mode: str
     reranked: bool
+    candidates: int = Field(description="Chunks the reranker re-scored (0 without reranking)")
     k: int
     offset: int
     results: list[SearchHit]

@@ -54,10 +54,13 @@ def create_app(settings: Settings | None = None, encoder: Encoder | None = None)
             settings.rerank_model,
             settings.model_cache_dir,
             settings.embed_batch_size,
+            settings.model_threads,
         )
         store = VectorStore(client, settings.collection, local=settings.qdrant_url == ":memory:")
         app.state.client = client
-        app.state.service = SearchService(enc, store, settings.rerank_candidates, settings.max_offset + settings.max_k)
+        app.state.service = SearchService(
+            enc, store, settings.rerank_candidates, settings.max_offset + max(settings.max_k, settings.max_rerank_candidates)
+        )
         await app.state.service.start()
         log.info("startup complete", extra={"qdrant": settings.qdrant_url, "collection": settings.collection})
         yield
@@ -114,6 +117,13 @@ def create_app(settings: Settings | None = None, encoder: Encoder | None = None)
         offset: int = Query(0, ge=0, le=settings.max_offset, description="Skip this many results (pagination)"),
         mode: Literal["hybrid", "dense", "bm25"] = Query("hybrid", description="Retrieval method"),
         rerank: bool = Query(True, description="Re-score the top candidates with the cross-encoder"),
+        candidates: int | None = Query(
+            None,
+            ge=1,
+            le=settings.max_rerank_candidates,
+            description=f"How many top chunks the reranker re-scores (default {settings.rerank_candidates}). "
+            "More can find better results but costs latency. Keep it the same while paging.",
+        ),
         source: list[str] | None = Query(None, description="Only these sources (repeat the parameter for several)"),
         date_from: dt.date | None = Query(None, description="Only documents dated on or after this day"),
         date_to: dt.date | None = Query(None, description="Only documents dated on or before this day"),
@@ -121,7 +131,9 @@ def create_app(settings: Settings | None = None, encoder: Encoder | None = None)
         """Search the stored chunks: retrieve candidates (hybrid by default), then rerank them with a cross-encoder."""
         if date_from and date_to and date_from > date_to:
             raise HTTPException(422, "date_from must not be after date_to")
-        result = await service(request).search(q, k, offset, mode, rerank, source, date_from, date_to)
+        result = await service(request).search(
+            q, k, offset, mode, rerank, source, date_from, date_to, candidates=candidates
+        )
         log.info(
             "search",
             extra={
@@ -129,6 +141,7 @@ def create_app(settings: Settings | None = None, encoder: Encoder | None = None)
                 "query_chars": len(q),  # log the size, not the text: queries can contain personal data
                 "mode": mode,
                 "rerank": rerank,
+                "candidates": candidates,
                 "k": k,
                 "offset": offset,
                 "filtered": bool(source or date_from or date_to),

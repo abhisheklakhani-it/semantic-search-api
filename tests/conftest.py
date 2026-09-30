@@ -34,6 +34,7 @@ class FakeEncoder:
 
     def __init__(self):
         self.rerank_calls = 0
+        self.reranked_texts = 0
 
     def _dense(self, text: str) -> list[float]:
         vec = [0.0] * DIM
@@ -60,6 +61,7 @@ class FakeEncoder:
 
     def rerank(self, query, texts):
         self.rerank_calls += 1
+        self.reranked_texts += len(texts)
         q = set(tokens(query))
         return [len(q & set(tokens(t))) / max(len(q), 1) for t in texts]
 

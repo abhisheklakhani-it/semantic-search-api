@@ -52,6 +52,7 @@ class SearchService:
         sources: list[str] | None = None,
         date_from: dt.date | None = None,
         date_to: dt.date | None = None,
+        candidates: int | None = None,
     ) -> SearchResponse:
         t0 = time.perf_counter()
         dense, sparse = await asyncio.to_thread(self.encoder.embed_query, query)
@@ -60,7 +61,7 @@ class SearchService:
         # The reranker always re-scores the same top `rerank_candidates` chunks, whatever page is asked for.
         # Results deeper than that pool keep their retrieval order. This keeps pages consistent:
         # no result appears on two pages and none is skipped.
-        pool = self.rerank_candidates if rerank else 0
+        pool = (candidates or self.rerank_candidates) if rerank else 0
         limit = max(offset + k, pool)
         flt = build_filter(sources, date_from, date_to)
         points = await self.store.search(dense, sparse, mode, limit, flt, prefetch_limit=self.max_depth)
@@ -98,6 +99,7 @@ class SearchService:
             query=query,
             mode=mode,
             reranked=rerank,
+            candidates=pool,
             k=k,
             offset=offset,
             results=results,

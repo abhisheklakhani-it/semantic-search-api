@@ -21,13 +21,17 @@ class Settings(BaseSettings):
     # Texts embedded per model call. Memory grows with batch x length^2 (attention), so a large batch of long
     # chunks can use gigabytes: fastembed's default of 256 ran a 4 GB container out of memory.
     embed_batch_size: int = Field(16, gt=0)
+    # ONNX Runtime threads per model (None = all cores). Inside Docker Desktop on an 8-core Mac, 4 threads
+    # embedded ~2x faster than 8: too many threads fight over the VM's CPUs.
+    model_threads: int | None = Field(None, gt=0)
 
     # Chunking
     chunk_size: int = Field(800, gt=0, description="Maximum characters per chunk")
     chunk_overlap: int = Field(100, ge=0)
 
     # Search
-    rerank_candidates: int = Field(30, gt=0, description="How many retrieved chunks the cross-encoder re-scores")
+    rerank_candidates: int = Field(20, gt=0, description="Default number of retrieved chunks the cross-encoder re-scores")
+    max_rerank_candidates: int = Field(100, gt=0)
     max_k: int = Field(50, gt=0, description="Largest page size a client may ask for")
     max_offset: int = Field(200, ge=0, description="Deepest pagination offset")
 

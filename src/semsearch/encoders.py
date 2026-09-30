@@ -45,17 +45,18 @@ class FastEmbedEncoder:
         rerank_model: str,
         cache_dir: str | None = None,
         batch_size: int = 16,
+        threads: int | None = None,
     ):
         self.batch_size = batch_size
         # Imported here so that tests using the fake encoder never load ONNX Runtime.
         from fastembed import SparseTextEmbedding, TextEmbedding
         from fastembed.rerank.cross_encoder import TextCrossEncoder
 
-        self._dense = TextEmbedding(dense_model, cache_dir=cache_dir)
+        self._dense = TextEmbedding(dense_model, cache_dir=cache_dir, threads=threads)
         self._sparse = SparseTextEmbedding(
             sparse_model, cache_dir=cache_dir, specific_model_path=_cached_snapshot(sparse_model, cache_dir)
         )
-        self._reranker = TextCrossEncoder(rerank_model, cache_dir=cache_dir)
+        self._reranker = TextCrossEncoder(rerank_model, cache_dir=cache_dir, threads=threads)
         self.dense_dim = len(next(iter(self._dense.embed(["dimension probe"]))))
         # ONNX Runtime does one-time setup on the first call; pay it at startup, not on a user's first search.
         self.embed_query("warm up")
