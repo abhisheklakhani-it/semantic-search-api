@@ -16,7 +16,7 @@ services:
     build: .
     image: semantic-search-api:latest
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000" # API_PORT=8080 docker compose up, if 8000 is taken
     environment:
       SEMSEARCH_QDRANT_URL: http://qdrant:6333
     env_file:
