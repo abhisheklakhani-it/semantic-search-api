@@ -1,0 +1,11 @@
+Sensors used in advanced driver assistance systems (ADAS)
+
+Cameras are the cheapest sensor and the only one that can read traffic signs, lane markings and traffic lights. Their weakness is bad weather, glare and darkness, and they estimate distance less precisely than radar or lidar.
+
+Radar measures distance and relative speed directly using the Doppler effect. It works in rain, fog and at night, which is why adaptive cruise control and automatic emergency braking rely on it. Its angular resolution is low, so it struggles to tell apart two objects that are close together.
+
+Lidar sends laser pulses and builds a precise 3D point cloud of the surroundings. It gives excellent distance accuracy and shape information, but it is more expensive and its performance drops in heavy rain, snow and fog.
+
+Ultrasonic sensors have a range of only a few metres and are used for parking assistance.
+
+Sensor fusion combines these sensors so that the weaknesses of one are covered by the strengths of another, for example camera classification with radar distance and speed.

@@ -1,0 +1,83 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R] /Count 3 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 9 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 656 >>
+stream
+BT /F1 11 Tf 14 TL 72 740 Td
+(ISO 26262: functional safety for road vehicles) '
+() '
+(ISO 26262 is the international standard for the functional safety of electrical and) '
+(electronic systems in series-production road vehicles. It adapts the general standard IEC) '
+(61508 to the automotive life cycle, from concept and development to production, operation) '
+(and decommissioning.) '
+() '
+(Hazard analysis and risk assessment \(HARA\) is the starting point. Each hazardous event is) '
+(rated for severity \(S0 to S3\), exposure \(E0 to E4\) and controllability \(C0 to C3\). The) '
+(combination gives the Automotive Safety Integrity Level, or ASIL.) '
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 9 0 R >> >> /Contents 6 0 R >>
+endobj
+6 0 obj
+<< /Length 623 >>
+stream
+BT /F1 11 Tf 14 TL 72 740 Td
+(Automotive Safety Integrity Levels) '
+() '
+(There are four ASILs, from ASIL A \(lowest\) to ASIL D \(highest\). Hazards that need no) '
+(safety measures beyond normal quality management are classified as QM. An airbag or a) '
+(braking system is typically ASIL D, while rear lights are often ASIL A or B.) '
+() '
+(A higher ASIL demands stricter methods: more rigorous requirements tracing, more testing,) '
+(higher coverage targets and more independence in reviews. ASIL decomposition allows a) '
+(high-ASIL requirement to be split across redundant, independent elements with lower ASILs.) '
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 9 0 R >> >> /Contents 8 0 R >>
+endobj
+8 0 obj
+<< /Length 445 >>
+stream
+BT /F1 11 Tf 14 TL 72 740 Td
+(The V-model) '
+() '
+(The V-model structures development: requirements and design on the left side,) '
+(implementation at the bottom, and verification and validation on the right side, where) '
+(each test level checks the matching design level. Unit tests check the software units,) '
+(integration tests check how components work together, and vehicle-level validation checks) '
+(that the safety goals are met.) '
+ET
+endstream
+endobj
+9 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000127 00000 n 
+0000000253 00000 n 
+0000000960 00000 n 
+0000001086 00000 n 
+0000001760 00000 n 
+0000001886 00000 n 
+0000002382 00000 n 
+trailer
+<< /Size 10 /Root 1 0 R >>
+startxref
+2452
+%%EOF
