@@ -1,0 +1,50 @@
+"""The three models behind search: dense embeddings, sparse BM25 vectors and a cross-encoder reranker.
+
+All three run through fastembed (ONNX Runtime on CPU), so the Docker image needs no PyTorch.
+"""
+
+from typing import Protocol
+
+from qdrant_client import models
+
+
+class Encoder(Protocol):
+    """What the search service needs from the models. Tests plug in a fast fake with the same methods."""
+
+    dense_dim: int
+
+    def embed_documents(self, texts: list[str]) -> tuple[list[list[float]], list[models.SparseVector]]: ...
+
+    def embed_query(self, text: str) -> tuple[list[float], models.SparseVector]: ...
+
+    def rerank(self, query: str, texts: list[str]) -> list[float]: ...
+
+
+class FastEmbedEncoder:
+    def __init__(self, dense_model: str, sparse_model: str, rerank_model: str, cache_dir: str | None = None):
+        # Imported here so that tests using the fake encoder never load ONNX Runtime.
+        from fastembed import SparseTextEmbedding, TextEmbedding
+        from fastembed.rerank.cross_encoder import TextCrossEncoder
+
+        self._dense = TextEmbedding(dense_model, cache_dir=cache_dir)
+        self._sparse = SparseTextEmbedding(sparse_model, cache_dir=cache_dir)
+        self._reranker = TextCrossEncoder(rerank_model, cache_dir=cache_dir)
+        self.dense_dim = len(next(iter(self._dense.embed(["dimension probe"]))))
+
+    def embed_documents(self, texts: list[str]) -> tuple[list[list[float]], list[models.SparseVector]]:
+        dense = [vector.tolist() for vector in self._dense.embed(texts)]
+        # BM25 document vectors hold term-frequency weights; Qdrant multiplies in the IDF at query time.
+        sparse = [
+            models.SparseVector(indices=s.indices.tolist(), values=s.values.tolist())
+            for s in self._sparse.embed(texts)
+        ]
+        return dense, sparse
+
+    def embed_query(self, text: str) -> tuple[list[float], models.SparseVector]:
+        dense = next(iter(self._dense.query_embed(text))).tolist()
+        s = next(iter(self._sparse.query_embed(text)))
+        return dense, models.SparseVector(indices=s.indices.tolist(), values=s.values.tolist())
+
+    def rerank(self, query: str, texts: list[str]) -> list[float]:
+        """Score each (query, text) pair jointly; a higher score means more relevant."""
+        return [float(score) for score in self._reranker.rerank(query, texts)]
