@@ -27,6 +27,26 @@ def source_filter(source: str) -> models.Filter:
     return models.Filter(must=[models.FieldCondition(key="source", match=models.MatchValue(value=source))])
 
 
+def build_filter(
+    sources: list[str] | None = None, date_from: date | None = None, date_to: date | None = None
+) -> models.Filter | None:
+    """Metadata filter: any of the given sources, and a document date inside [date_from, date_to]."""
+    must: list[models.Condition] = []
+    if sources:
+        must.append(models.FieldCondition(key="source", match=models.MatchAny(any=sources)))
+    if date_from or date_to:
+        must.append(
+            models.FieldCondition(
+                key="date",
+                range=models.DatetimeRange(
+                    gte=to_rfc3339(date_from) if date_from else None,
+                    lte=to_rfc3339(date_to) if date_to else None,
+                ),
+            )
+        )
+    return models.Filter(must=must) if must else None
+
+
 class VectorStore:
     def __init__(self, client: AsyncQdrantClient, collection: str, local: bool = False):
         self.client = client
@@ -124,8 +144,14 @@ class VectorStore:
         mode: str,
         limit: int,
         flt: models.Filter | None = None,
+        prefetch_limit: int | None = None,
     ) -> list[models.ScoredPoint]:
-        """Retrieve the top `limit` chunks. mode: 'dense', 'bm25' or 'hybrid' (both, merged with RRF)."""
+        """Retrieve the top `limit` chunks. mode: 'dense', 'bm25' or 'hybrid' (both, merged with RRF).
+
+        For hybrid, each of the two searches returns `prefetch_limit` candidates. Keep it constant across
+        requests: RRF scores depend on it, so changing it with the page would reorder earlier pages.
+        """
+        prefetch_limit = max(prefetch_limit or limit, limit)
         if mode == "dense":
             kwargs = {"query": dense, "using": DENSE}
         elif mode == "bm25":
@@ -135,8 +161,8 @@ class VectorStore:
             # score = sum over lists of 1 / (60 + rank). Ranks are used, so the different score scales don't matter.
             kwargs = {
                 "prefetch": [
-                    models.Prefetch(query=dense, using=DENSE, filter=flt, limit=limit),
-                    models.Prefetch(query=sparse, using=SPARSE, filter=flt, limit=limit),
+                    models.Prefetch(query=dense, using=DENSE, filter=flt, limit=prefetch_limit),
+                    models.Prefetch(query=sparse, using=SPARSE, filter=flt, limit=prefetch_limit),
                 ],
                 "query": models.FusionQuery(fusion=models.Fusion.RRF),
             }

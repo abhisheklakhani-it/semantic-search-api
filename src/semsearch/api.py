@@ -46,7 +46,7 @@ def create_app(settings: Settings | None = None, encoder: Encoder | None = None)
         )
         store = VectorStore(client, settings.collection, local=settings.qdrant_url == ":memory:")
         app.state.client = client
-        app.state.service = SearchService(enc, store, settings.rerank_candidates)
+        app.state.service = SearchService(enc, store, settings.rerank_candidates, settings.max_offset + settings.max_k)
         await app.state.service.start()
         yield
         await client.close()
@@ -75,11 +75,17 @@ def create_app(settings: Settings | None = None, encoder: Encoder | None = None)
         request: Request,
         q: str = Query(min_length=1, max_length=1000, description="The search query"),
         k: int = Query(10, ge=1, le=settings.max_k, description="Number of results"),
+        offset: int = Query(0, ge=0, le=settings.max_offset, description="Skip this many results (pagination)"),
         mode: Literal["hybrid", "dense", "bm25"] = Query("hybrid", description="Retrieval method"),
-        rerank: bool = Query(True, description="Re-score the candidates with the cross-encoder"),
+        rerank: bool = Query(True, description="Re-score the top candidates with the cross-encoder"),
+        source: list[str] | None = Query(None, description="Only these sources (repeat the parameter for several)"),
+        date_from: dt.date | None = Query(None, description="Only documents dated on or after this day"),
+        date_to: dt.date | None = Query(None, description="Only documents dated on or before this day"),
     ) -> SearchResponse:
         """Search the stored chunks: retrieve candidates (hybrid by default), then rerank them with a cross-encoder."""
-        return await service(request).search(q, k, mode, rerank)
+        if date_from and date_to and date_from > date_to:
+            raise HTTPException(422, "date_from must not be after date_to")
+        return await service(request).search(q, k, offset, mode, rerank, source, date_from, date_to)
 
     @app.post("/ingest", response_model=IngestResult, status_code=201, tags=["documents"])
     async def ingest_file(
