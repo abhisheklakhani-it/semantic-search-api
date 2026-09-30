@@ -1,0 +1,30 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.19.1
+    ports:
+      - "6333:6333" # REST API and web dashboard (http://localhost:6333/dashboard)
+    volumes:
+      - qdrant-data:/qdrant/storage # keeps the vectors when the container is recreated
+    healthcheck:
+      # The Qdrant image has no curl, so open a TCP connection with bash instead.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/6333"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: .
+    image: semantic-search-api:latest
+    ports:
+      - "8000:8000"
+    environment:
+      SEMSEARCH_QDRANT_URL: http://qdrant:6333
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      qdrant:
+        condition: service_healthy
+
+volumes:
+  qdrant-data:

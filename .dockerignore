@@ -1,0 +1,11 @@
+.venv
+.git
+.pytest_cache
+__pycache__
+data
+models
+results
+docs
+tests
+.env
+SESSION_NOTES*.txt
