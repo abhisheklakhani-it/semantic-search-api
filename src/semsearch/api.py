@@ -3,8 +3,9 @@
 import datetime as dt
 import time
 from contextlib import asynccontextmanager
+from typing import Literal
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from qdrant_client import AsyncQdrantClient
 
 from semsearch.config import Settings, get_settings
@@ -13,6 +14,7 @@ from semsearch.loaders import Chunk, UnsupportedFileType, load_bytes, split_docu
 from semsearch.schemas import (
     DeleteResult,
     IngestResult,
+    SearchResponse,
     SourceInfo,
     TextIngestRequest,
     TextIngestResponse,
@@ -44,7 +46,7 @@ def create_app(settings: Settings | None = None, encoder: Encoder | None = None)
         )
         store = VectorStore(client, settings.collection, local=settings.qdrant_url == ":memory:")
         app.state.client = client
-        app.state.service = SearchService(enc, store)
+        app.state.service = SearchService(enc, store, settings.rerank_candidates)
         await app.state.service.start()
         yield
         await client.close()
@@ -67,6 +69,17 @@ def create_app(settings: Settings | None = None, encoder: Encoder | None = None)
         except Exception as exc:
             raise HTTPException(503, f"Qdrant is not reachable: {exc}") from exc
         return {"status": "ok", "qdrant": "ok", "collection": svc.store.collection, "chunks": points}
+
+    @app.get("/search", response_model=SearchResponse, tags=["search"])
+    async def search(
+        request: Request,
+        q: str = Query(min_length=1, max_length=1000, description="The search query"),
+        k: int = Query(10, ge=1, le=settings.max_k, description="Number of results"),
+        mode: Literal["hybrid", "dense", "bm25"] = Query("hybrid", description="Retrieval method"),
+        rerank: bool = Query(True, description="Re-score the candidates with the cross-encoder"),
+    ) -> SearchResponse:
+        """Search the stored chunks: retrieve candidates (hybrid by default), then rerank them with a cross-encoder."""
+        return await service(request).search(q, k, mode, rerank)
 
     @app.post("/ingest", response_model=IngestResult, status_code=201, tags=["documents"])
     async def ingest_file(

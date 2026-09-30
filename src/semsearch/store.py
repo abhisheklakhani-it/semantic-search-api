@@ -116,3 +116,33 @@ class VectorStore:
             counts.update(p.payload["source"] for p in points)
             if offset is None:
                 return dict(sorted(counts.items()))
+
+    async def search(
+        self,
+        dense: list[float],
+        sparse: models.SparseVector,
+        mode: str,
+        limit: int,
+        flt: models.Filter | None = None,
+    ) -> list[models.ScoredPoint]:
+        """Retrieve the top `limit` chunks. mode: 'dense', 'bm25' or 'hybrid' (both, merged with RRF)."""
+        if mode == "dense":
+            kwargs = {"query": dense, "using": DENSE}
+        elif mode == "bm25":
+            kwargs = {"query": sparse, "using": SPARSE}
+        elif mode == "hybrid":
+            # Qdrant runs both searches, then Reciprocal Rank Fusion merges the two ranked lists:
+            # score = sum over lists of 1 / (60 + rank). Ranks are used, so the different score scales don't matter.
+            kwargs = {
+                "prefetch": [
+                    models.Prefetch(query=dense, using=DENSE, filter=flt, limit=limit),
+                    models.Prefetch(query=sparse, using=SPARSE, filter=flt, limit=limit),
+                ],
+                "query": models.FusionQuery(fusion=models.Fusion.RRF),
+            }
+        else:
+            raise ValueError(f"Unknown search mode {mode!r}")
+        response = await self.client.query_points(
+            self.collection, query_filter=flt, limit=limit, with_payload=True, **kwargs
+        )
+        return response.points

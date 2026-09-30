@@ -37,3 +37,32 @@ class SourceInfo(BaseModel):
 class DeleteResult(BaseModel):
     source: str
     deleted_chunks: int
+
+
+class SearchHit(BaseModel):
+    rank: int
+    score: float = Field(description="Reranker score if reranked, otherwise the retrieval score")
+    retrieval_rank: int = Field(description="Rank before reranking (shows how much the reranker moved it)")
+    retrieval_score: float
+    text: str
+    source: str
+    page: int | None
+    chunk_index: int
+    date: dt.date
+
+
+class Timings(BaseModel):
+    embed_ms: float
+    retrieve_ms: float
+    rerank_ms: float
+    total_ms: float
+
+
+class SearchResponse(BaseModel):
+    query: str
+    mode: str
+    reranked: bool
+    k: int
+    offset: int
+    results: list[SearchHit]
+    timings: Timings
