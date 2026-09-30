@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     sparse_model: str = "Qdrant/bm25"
     rerank_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
     model_cache_dir: str | None = None
+    # Texts embedded per model call. Memory grows with batch x length^2 (attention), so a large batch of long
+    # chunks can use gigabytes: fastembed's default of 256 ran a 4 GB container out of memory.
+    embed_batch_size: int = Field(16, gt=0)
 
     # Chunking
     chunk_size: int = Field(800, gt=0, description="Maximum characters per chunk")

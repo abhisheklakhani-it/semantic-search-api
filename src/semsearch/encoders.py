@@ -38,7 +38,15 @@ def _cached_snapshot(repo_id: str, cache_dir: str | None) -> str | None:
 
 
 class FastEmbedEncoder:
-    def __init__(self, dense_model: str, sparse_model: str, rerank_model: str, cache_dir: str | None = None):
+    def __init__(
+        self,
+        dense_model: str,
+        sparse_model: str,
+        rerank_model: str,
+        cache_dir: str | None = None,
+        batch_size: int = 16,
+    ):
+        self.batch_size = batch_size
         # Imported here so that tests using the fake encoder never load ONNX Runtime.
         from fastembed import SparseTextEmbedding, TextEmbedding
         from fastembed.rerank.cross_encoder import TextCrossEncoder
@@ -54,11 +62,11 @@ class FastEmbedEncoder:
         self.rerank("warm up", ["warm up"])
 
     def embed_documents(self, texts: list[str]) -> tuple[list[list[float]], list[models.SparseVector]]:
-        dense = [vector.tolist() for vector in self._dense.embed(texts)]
+        dense = [vector.tolist() for vector in self._dense.embed(texts, batch_size=self.batch_size)]
         # BM25 document vectors hold term-frequency weights; Qdrant multiplies in the IDF at query time.
         sparse = [
             models.SparseVector(indices=s.indices.tolist(), values=s.values.tolist())
-            for s in self._sparse.embed(texts)
+            for s in self._sparse.embed(texts, batch_size=self.batch_size)
         ]
         return dense, sparse
 
@@ -69,4 +77,4 @@ class FastEmbedEncoder:
 
     def rerank(self, query: str, texts: list[str]) -> list[float]:
         """Score each (query, text) pair jointly; a higher score means more relevant."""
-        return [float(score) for score in self._reranker.rerank(query, texts)]
+        return [float(score) for score in self._reranker.rerank(query, texts, batch_size=self.batch_size)]

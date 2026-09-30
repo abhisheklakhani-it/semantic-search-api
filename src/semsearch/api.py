@@ -49,7 +49,11 @@ def create_app(settings: Settings | None = None, encoder: Encoder | None = None)
         client = make_client(settings)
         # Load the models once at startup, so the first request is not slow.
         enc = encoder or FastEmbedEncoder(
-            settings.dense_model, settings.sparse_model, settings.rerank_model, settings.model_cache_dir
+            settings.dense_model,
+            settings.sparse_model,
+            settings.rerank_model,
+            settings.model_cache_dir,
+            settings.embed_batch_size,
         )
         store = VectorStore(client, settings.collection, local=settings.qdrant_url == ":memory:")
         app.state.client = client
