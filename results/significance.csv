@@ -1,0 +1,8 @@
+A,B,ndcg@10 A - B,95% CI,p-value,significant
+Hybrid RRF,Dense (BGE-small),0.021846332850818828,"[+0.002, +0.042]",0.032896710328967106,yes
+Hybrid RRF,BM25,0.05107788673207447,"[+0.029, +0.073]",9.999000099990002e-05,yes
+Hybrid + rerank top 10,Hybrid RRF,-0.021456498040292815,"[-0.042, -0.001]",0.04279572042795721,yes
+Hybrid + rerank top 20,Hybrid RRF,-0.030895144942631347,"[-0.057, -0.005]",0.022397760223977603,yes
+Hybrid + rerank top 30,Hybrid RRF,-0.033581764137023074,"[-0.060, -0.007]",0.014898510148985102,yes
+Hybrid + rerank top 20,Hybrid + rerank top 10,-0.009438646902338532,"[-0.021, +0.003]",0.1321867813218678,no
+Hybrid + rerank top 30,Hybrid + rerank top 20,-0.002686619194391726,"[-0.008, +0.003]",0.37206279372062795,no

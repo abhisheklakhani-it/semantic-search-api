@@ -1,0 +1,16 @@
+{
+  "dataset": "BEIR SciFact test split",
+  "queries": 300,
+  "documents": 5183,
+  "chunks": 5960,
+  "k": 10,
+  "api_url": "http://localhost:8002",
+  "machine": "arm64 macOS-26.5.1-arm64-arm-64bit",
+  "docker_cpus": "8",
+  "ingest": {
+    "docs": 4223,
+    "seconds": 401.5,
+    "docs_per_s": 10.52
+  },
+  "date": "2026-09-30"
+}
