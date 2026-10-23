@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  test:
+    name: Lint and test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      UV_TORCH_BACKEND: cpu # CPU-only PyTorch wheels: no 2 GB CUDA download
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          python-version: "3.11"
+          activate-environment: true
+          enable-cache: true
+          cache-dependency-glob: "requirements*.txt"
+      - name: Install dependencies
+        run: uv pip install -r requirements-dev.txt
+      - name: ruff (bug-finding rules)
+        run: uvx ruff@0.17.2 check --isolated --select F,E9 --extend-exclude "*.ipynb" --output-format=github .
+      - name: pytest (no API keys, no network services)
+        run: python -m pytest -q
+
+  docker:
+    name: Docker build and smoke test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          tags: app:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Start the container and call /health
+        run: |
+          docker run -d --name app -p 8000:8000 -e SEMSEARCH_QDRANT_URL=:memory: app:ci
+          for i in $(seq 1 60); do curl -sf localhost:8000/health && exit 0; sleep 2; done
+          docker logs app
+          exit 1

@@ -2,6 +2,7 @@
 
 A production-style semantic search REST API. Upload PDFs, text or Markdown; search them by meaning **and** exact words (hybrid dense + BM25 retrieval in **Qdrant**), with a **cross-encoder reranker** on top. Built with **FastAPI**, runs with one `docker compose up`, and benchmarked for quality and latency through the API on a human-labelled dataset.
 
+[![CI](https://github.com/abhisheklakhani-it/semantic-search-api/actions/workflows/ci.yml/badge.svg)](https://github.com/abhisheklakhani-it/semantic-search-api/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white)
 ![Qdrant](https://img.shields.io/badge/Qdrant-vector%20DB-DC244C)
